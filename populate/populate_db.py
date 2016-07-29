@@ -11,7 +11,7 @@ import pytz
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from models import Pokemon, Gym
 
@@ -19,23 +19,54 @@ log = logging.getLogger(__name__)
 
 
 def main():
+    # Grab Arguments
+    args = parse_args()
+
     # Set Up Logger
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=args.loglevel,
         format='%(asctime)s %(levelname)-8s %(message)s',
         datefmt='%a, %d %b %Y %H:%M:%S'
     )
 
-    args = parse_args()
+    # Parse the json config
     config = parse_config(args.configpath)
+
+    # Create the db uri string
     uri = create_uri(config['database'])
+
+    # Grab a db session
     session = connect_to_db(uri)
 
-    data_sets = get_json_data(config['web'])
+    # Set up our timer
+    seconds = timedelta(seconds=config['web']['timer'])
+    current_time = datetime.now()
+    elapsed_time = datetime.now()
 
-    current_time = pytz.utc.localize(datetime.utcnow())
-    insert_data(session, data_sets, current_time)
+    # Put in a try/catch block so we can use ctrl+c to escape
+    try:
+        log.info("Running Every %s Seconds" % config['web']['timer'])
+        # Run our extractor at most every X seconds
+        while (current_time - elapsed_time) <= seconds:
+            current_time = datetime.now()
+            if (current_time - elapsed_time) > seconds:
+                elapsed_time = datetime.now()
 
+                # Grab the current time for the transaction
+                current_utc_time = pytz.utc.localize(datetime.utcnow())
+
+                # Query the urls and grab the data
+                log.info("Querying The URLs")
+                data_sets = get_json_data(config['web'])
+
+                # Insert the data we collected into our database
+                log.info("Populating The Databases")
+                insert_data(session, data_sets, current_utc_time)
+    except KeyboardInterrupt:
+        log.info("Interrupted")
+
+
+    log.info("Exiting")
     sys.exit(0)
 
 
@@ -65,6 +96,7 @@ def insert_gym(session, gym, time):
     )
     session.merge(gym_obj)
 
+
 def insert_pokemon(session, pokemon, time):
     pokemon_obj = Pokemon(
         encounter_id=str(pokemon['encounter_id']),
@@ -79,6 +111,7 @@ def insert_pokemon(session, pokemon, time):
         )
     )
     session.merge(pokemon_obj)
+
 
 def dt_from_epoch(epoch):
     # epoch uses ms, so cut those off
@@ -146,6 +179,28 @@ def parse_args():
     parser.add_argument(
         'configpath', type=str,
         help='path to json config file'
+    )
+
+    # Logging Arguments [Mutually Exclusive]
+    log_argument_group = parser.add_argument_group("logging arguments")
+    log_group = log_argument_group.add_mutually_exclusive_group()
+    log_group.add_argument(
+        '-q', '--quiet',
+        action='store_const', dest='loglevel',
+        const=logging.ERROR, default=logging.INFO,
+        help='set logging to ERROR'
+    )
+    log_group.add_argument(
+        '-d', '--debug',
+        action='store_const', dest='loglevel',
+        const=logging.DEBUG, default=logging.INFO,
+        help='set logging to DEBUG'
+    )
+    log_group.add_argument(
+        '-v', '--verbose',
+        action='store_const', dest='loglevel',
+        const=5, default=logging.INFO,
+        help='set logging to COMM'
     )
 
     args = parser.parse_args()
