@@ -65,19 +65,40 @@ def main():
     except KeyboardInterrupt:
         log.info("Interrupted")
 
-
     log.info("Exiting")
     sys.exit(0)
 
 
 def insert_data(session, data_sets, time):
+    # Get data count before inserting new data
+    gc_a = session.query(Gym).count()
+    pc_a = session.query(Pokemon).count()
+
+    # Need to commit here or else sqlalchemy won't actually query the db
+    # until then commit after populated the db and thus both count
+    # queries will be the same
+    session.commit()
+
+    # Insert new Data
     for data_set in data_sets:
         for gym in data_set['gyms']:
             insert_gym(session, gym, time)
         for pokemon in data_set['pokemons']:
             insert_pokemon(session, pokemon, time)
 
+    # Figure out how many things we inserted
     session.commit()
+    gc_b = session.query(Gym).count()
+    pc_b = session.query(Pokemon).count()
+
+    # Display Count Info
+    if gc_a != gc_b:
+        log.info("Inserted New Gym Records")
+        log.info("%s New Records: %s -> %s" % (gc_b - gc_a, gc_a, gc_b))
+
+    if pc_a != pc_b:
+        log.info("Inserted New Pokemon Records")
+        log.info("%s New Records: %s -> %s" % (pc_b - pc_a, pc_a, pc_b))
 
 
 def insert_gym(session, gym, time):
@@ -94,6 +115,7 @@ def insert_gym(session, gym, time):
             float(gym['latitude'])
         )
     )
+
     session.merge(gym_obj)
 
 
@@ -110,6 +132,7 @@ def insert_pokemon(session, pokemon, time):
             float(pokemon['latitude'])
         )
     )
+
     session.merge(pokemon_obj)
 
 
