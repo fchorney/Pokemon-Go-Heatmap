@@ -1,4 +1,4 @@
-CREATE TABLE pokemon (
+CREATE TABLE pokemons (
     encounter_id TEXT NOT NULL,
     spawnpoint_id TEXT NOT NULL,
     disappear_time TIMESTAMPTZ NOT NULL,
@@ -10,4 +10,4 @@ CREATE TABLE pokemon (
     PRIMARY KEY (encounter_id)
 );
 
-CREATE INDEX pokemon_geom_gist ON pokemon USING gist (geom);
+CREATE INDEX pokemons_geom_gist ON pokemons USING gist (geom);
