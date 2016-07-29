@@ -7,7 +7,7 @@ CREATE TABLE pokemon (
     time TIMESTAMPTZ NOT NULL,
     geom geometry(POINT, 4326) NOT NULL,
 
-    PRIMARY KEY (encounter_id, time)
+    PRIMARY KEY (encounter_id)
 );
 
 CREATE INDEX pokemon_geom_gist ON pokemon USING gist (geom);
